@@ -50,7 +50,7 @@ class MergeJsonWebpackPlugin {
         };
         this.processFiles = (compilation, files, outputPath) => {
             this.fileDependencies = this.fileDependencies.concat(files);
-            const fileContents = files.map(this.readFile);
+            const fileContents = files.map((f) => this.readFile(f, compilation));
             let mergedContents = {};
             return es6_promise_1.Promise.all(fileContents)
                 .then((contents) => {
@@ -73,19 +73,32 @@ class MergeJsonWebpackPlugin {
                 compilation.errors.push(`MergeJsonWebpackPlugin: ${reason}`);
             });
         };
-        this.readFile = (f) => {
+        this.readFile = (f, compilation) => {
             return new es6_promise_1.Promise((resolve, reject) => {
                 f = f.trim();
                 if (!f.endsWith(".json") && !f.endsWith(".JSON")) {
                     reject(`MergeJsonWebpackPlugin: Not a valid Json file ${f}`);
                 }
                 let entryData = undefined;
-                try {
-                    entryData = fs.readFileSync(f, this.options.encoding);
+                if (f.startsWith("asset:")) {
+                    console.log(`Reading ${f} from compilation.asset`);
+                    let filename = f.replace("asset:", "");
+                    if (compilation.assets[filename]) {
+                        entryData = compilation.assets[f].source();
+                    }
+                    else {
+                        console.error(`MergeJsonWebpackPlugin: Asset missing ${f}`);
+                        reject(`MergeJsonWebpackPlugin: Unable to locate asset ${f}`);
+                    }
                 }
-                catch (e) {
-                    console.error("MergeJsonWebpackPlugin: File missing [", f, "]  error ", e);
-                    reject(`MergeJsonWebpackPlugin: Unable to locate file ${f}`);
+                else {
+                    try {
+                        entryData = fs.readFileSync(f, this.options.encoding);
+                    }
+                    catch (e) {
+                        console.error("MergeJsonWebpackPlugin: File missing [", f, "]  error ", e);
+                        reject(`MergeJsonWebpackPlugin: Unable to locate file ${f}`);
+                    }
                 }
                 if (!entryData) {
                     console.error("MergeJsonWebpackPlugin: Data appears to be empty in file [" + f + " ]");

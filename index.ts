@@ -77,7 +77,7 @@ class MergeJsonWebpackPlugin {
         //add files to watcher
         this.fileDependencies = this.fileDependencies.concat(files);
         //handle files
-        const fileContents = files.map(this.readFile);
+        const fileContents = files.map((f) => this.readFile(f, compilation));
         let mergedContents: any = {};
         return Promise.all(fileContents)
             .then((contents) => {
@@ -106,7 +106,7 @@ class MergeJsonWebpackPlugin {
     /**
      * this method reads the file and returns content as json object
      */
-    readFile = (f: string) => {
+    readFile = (f: string, compilation: any) => {
 
         return new Promise((resolve, reject) => {
 
@@ -118,12 +118,23 @@ class MergeJsonWebpackPlugin {
 
             let entryData = undefined;
 
-            try {
-                entryData = fs.readFileSync(f, this.options.encoding);
+            if (f.startsWith("asset:")) {
+                console.log(`Reading ${f} from compilation.asset`);
+                let filename = f.replace("asset:", "");
+                if (compilation.assets[filename]) {
+                    entryData = compilation.assets[filename].source();
+                } else {
+                    console.error(`MergeJsonWebpackPlugin: Asset missing ${f}`);
+                    reject(`MergeJsonWebpackPlugin: Unable to locate asset ${f}`);
+                }
+            } else {
+                try {
+                    entryData = fs.readFileSync(f, this.options.encoding);
 
-            } catch (e) {
-                console.error("MergeJsonWebpackPlugin: File missing [", f, "]  error ", e);
-                reject(`MergeJsonWebpackPlugin: Unable to locate file ${f}`);
+                } catch (e) {
+                    console.error("MergeJsonWebpackPlugin: File missing [", f, "]  error ", e);
+                    reject(`MergeJsonWebpackPlugin: Unable to locate file ${f}`);
+                }
             }
 
             if (!entryData) {
